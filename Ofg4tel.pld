@@ -1,0 +1,404 @@
+FUNCTION EH_HELP RETURN BOOLEAN IS
+ Cargo_Admin Varchar2(30) ;
+ AJ_Cargo UTI.COD_CARG%TYPE ;
+BEGIN
+  Select Upper(COD_CARG) into AJ_Cargo
+   from uti
+   Where UPPER(COD_UTI) = USER;
+  Cargo_Admin := UPPER(Busca_Param_Glo(34,Aj_CARGO)) ;
+  If Cargo_Admin IS NOT NULL Then
+	Return(TRUE) ;
+   else
+	Return(FALSE) ;
+  End if ;
+ RETURN NULL; EXCEPTION
+  When NO_DATA_FOUND then
+	Message('Não é utilizador da aplicação RPV.');
+	Raise Form_TRIGGER_FAILURE ;
+  When OTHERS then
+	Message('ERRO na Base de Dados.');
+	Raise Form_TRIGGER_FAILURE ;
+END;
+
+FUNCTION busca_param_glo(ind_para1 in number,
+                      valor in varchar2 := NULL) RETURN varchar2 IS
+  val_para1 Varchar2(255);
+  cursor e is
+   select val_param
+     from param_det
+     where ind_para = ind_para1 and upper(Val_Param) = upper(Valor);
+BEGIN
+  select val_para
+   into Val_Para1
+   from Param_Glo
+   where ind_para = Ind_Para1;
+ if val_Para1 is null and valor is not null then
+   for e1 in e loop
+     Val_Para1 := e1.Val_Param;
+   end loop ;
+ end if ;
+ return (val_para1);
+ RETURN NULL; exception
+  when others then
+    Val_para1 := NULL;
+    return (val_para1);
+END;
+
+
+FUNCTION CGTE$STRIP_FIRST_ERROR
+(
+   P_MSG  IN  VARCHAR2
+) RETURN VARCHAR2 IS
+
+  end_pos  number := instr(P_MSG, 'ORA-', 5);
+
+BEGIN
+
+  if ( end_pos != 0 )
+    then
+      return( substr(substr(P_MSG,1, end_pos -2 ),12) );
+    else
+      return( substr(P_MSG,12) );
+  end if;
+
+RETURN NULL; END CGTE$STRIP_FIRST_ERROR;
+
+
+FUNCTION CGTE$STRIP_CONSTRAINT
+(
+  P_MSG_TEXT  IN  VARCHAR2
+) RETURN VARCHAR2 is
+
+  start_pos   number := instr(P_MSG_TEXT, '.', instr(P_MSG_TEXT,'('));
+
+BEGIN
+
+  if ( start_pos != 0 )
+    then
+      return( substr(P_MSG_TEXT, start_pos +1,
+                     instr(P_MSG_TEXT, ')', start_pos) - start_pos -1
+                     )
+            );
+    else
+      return( null );
+  end if;
+
+RETURN NULL; END CGTE$STRIP_CONSTRAINT;
+
+
+PROCEDURE CGTE$POP_ERROR_STACK
+(
+  P_ERR_CODE  IN OUT NUMBER,
+  P_ERR_MSG   IN OUT VARCHAR2
+) IS
+
+  start_pos  number := instr(P_ERR_MSG, 'ORA-', 5);
+
+BEGIN
+
+  if ( start_pos != 0 )
+    then
+      P_ERR_MSG  := substr(P_ERR_MSG, start_pos);
+      P_ERR_CODE := to_number(
+                      substr(P_ERR_MSG, 5, instr(P_ERR_MSG, ':', 5) - 5)
+                             );
+    else
+      P_ERR_MSG  := null;
+      P_ERR_CODE := 0;
+  end if;
+
+END CGTE$POP_ERROR_STACK;
+
+
+PROCEDURE CGTE$OTHER_EXCEPTIONS IS
+/* General purpose reporting procedure for otherwise unhandled
+   exceptions */
+BEGIN
+  IF (SQLCODE = 100) THEN
+    RAISE NO_DATA_FOUND;
+  ELSIF (SQLCODE = -100501) THEN
+    RAISE FORM_TRIGGER_FAILURE;
+  ELSE
+    message(SQLERRM);
+    RAISE FORM_TRIGGER_FAILURE;
+  END IF;
+END;
+
+
+procedure CGLY$SYNC_CANVAS(canvas_is in VARCHAR2,
+                      scrollx in number,
+                      block_is VARCHAR2) is
+canvas_movement number(3);
+view_id viewport;
+
+begin
+
+  view_id := find_view(canvas_is);
+
+  canvas_movement := (scrollx *
+      (to_number(get_block_property(block_is,CURRENT_RECORD)) -
+       to_number(get_block_property(block_is,TOP_RECORD))));
+
+  set_view_property(view_id,POSITION_ON_CANVAS,0,canvas_movement);
+
+end;
+
+
+procedure CGIM$READ_IMAGE_FILE(iname IN varchar2, iitem in varchar2) is
+mypic item;
+itype VARCHAR2(4) := upper(substr(iname,greatest((NVL(length(iname), 0)-3),1)));
+begin
+
+  mypic := find_item(iitem);
+ 
+  if (get_item_property(mypic,UPDATEABLE) = 'FALSE'
+      and 
+      NAME_IN('system.record_status') in ('CHANGED','QUERY')
+      and 
+      NAME_IN('system.system.mode') = 'NORMAL')
+  then
+      message('ERROR: Image not updateable');
+      raise FORM_TRIGGER_FAILURE;
+  else
+      if (itype not in ('TIFF','JFIF','PICT'))
+      then itype := upper(substr(iname,greatest((NVL(length(iname), 0)-2),1)));
+      end if;
+
+      if (itype = 'TIF')
+      then itype := 'TIFF';
+      end if;
+
+      read_image_file(iname, itype, mypic);
+
+  end if;
+end;
+
+
+
+PROCEDURE CGHP$CALL_HELP_FORM
+(
+  CG_HELP_FRM in varchar2,
+  CG_HELP_MOD in varchar2,
+  CG_HELP_APP in varchar2,
+  CG_HELP_MTITLE_1 in varchar2,
+  CG_HELP_MTITLE_2 in varchar2
+) IS
+hlp_param_list_id paramlist;
+itype varchar2(30) := 'TEXT ITEM';
+help_table varchar2(100);
+
+/* CGHP$CALL_HELP_FORM */
+/* Call the help form after setting globals with current block and */
+/*   ITEM                                                         */
+BEGIN
+  If Eh_Help Then
+	CGHP$CALL_HELP_Faz('Help_Faz',
+			CG_HELP_MOD,
+			CG_HELP_APP,
+			CG_HELP_MTITLE_1,
+			CG_HELP_MTITLE_2);
+	Return;
+  End if;
+  default_value(NULL,'GLOBAL.CGHP$LAST_ITEM_ACCESSED');
+
+  if (id_null(hlp_param_list_id))
+  then
+      hlp_param_list_id := Create_Parameter_list('hlp_param_list');
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_MODP', TEXT_PARAMETER, 
+                    CG_HELP_MOD);
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_APPP', TEXT_PARAMETER,
+                    CG_HELP_APP);
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_MTITLE_2P', TEXT_PARAMETER,
+                    CG_HELP_MTITLE_2);
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_MTITLE_1P', TEXT_PARAMETER,
+                    CG_HELP_MTITLE_1);
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_BLKP', TEXT_PARAMETER,
+                    NAME_IN('SYSTEM.CURSOR_BLOCK'));
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_FLDP', TEXT_PARAMETER,
+                    NAME_IN('SYSTEM.CURSOR_ITEM'));
+
+      help_table := get_block_property(NAME_IN('SYSTEM.CURSOR_BLOCK'),BASE_TABLE);
+      help_table := substr(help_table, instr(help_table,'.')+1, NVL(length(help_table), 0));
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_TABP', TEXT_PARAMETER, help_table);
+
+      itype := get_item_property(NAME_IN('SYSTEM.CURSOR_ITEM'),ITEM_TYPE);
+      if (itype = 'TEXT ITEM')
+      then
+          Add_Parameter(hlp_param_list_id, 'CG_HELP_LOV_AVAILABLEP',
+                        TEXT_PARAMETER, get_item_property(
+                                        NAME_IN('SYSTEM.CURSOR_ITEM'),LIST));
+      else
+          Add_Parameter(hlp_param_list_id, 'CG_HELP_LOV_AVAILABLEP',
+                        TEXT_PARAMETER, 'FALSE');
+      end if;
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_EDIT_AVAILABLEP',
+                    TEXT_PARAMETER, itype);
+  end if;
+
+  IF get_item_property(NAME_IN('SYSTEM.CURSOR_ITEM'),AUTO_HINT) = 'TRUE' 
+  THEN
+     COPY(NULL,'GLOBAL.CGHP$LAST_ITEM_ACCESSED');
+     COPY('N','GLOBAL.CG_HELP_LOV_REQUESTED');
+     COPY('N','GLOBAL.CG_HELP_EDIT_REQUESTED');
+
+     call_form(CG_HELP_FRM,NO_HIDE,NO_REPLACE,QUERY_ONLY,hlp_param_list_id);
+
+     IF NOT FORM_SUCCESS THEN
+       message('Unable to call help form '||CG_HELP_FRM);
+     END IF;
+
+     Destroy_Parameter_list(hlp_param_list_id);
+
+     IF (NAME_IN('GLOBAL.CG_HELP_LOV_REQUESTED') = 'Y')
+     THEN LIST_VALUES;
+     END IF;
+
+     IF (NAME_IN('GLOBAL.CG_HELP_EDIT_REQUESTED') = 'Y')
+     THEN EDIT_TEXTITEM;
+     END IF;
+  ELSE
+    IF (NAME_IN('SYSTEM.CURSOR_ITEM') = 
+        NAME_IN('GLOBAL.CGHP$LAST_ITEM_ACCESSED')) 
+    THEN
+      COPY(NULL,'GLOBAL.CGHP$LAST_ITEM_ACCESSED');
+      COPY('N','GLOBAL.CG_HELP_LOV_REQUESTED');
+      COPY('N','GLOBAL.CG_HELP_EDIT_REQUESTED');
+
+      call_form(CG_HELP_FRM,NO_HIDE,NO_REPLACE,QUERY_ONLY,hlp_param_list_id);
+
+      IF NOT FORM_SUCCESS THEN
+        message('Unable to call help form'||CG_HELP_FRM);
+      END IF;
+
+      Destroy_Parameter_list(hlp_param_list_id);
+
+      IF (NAME_IN('GLOBAL.CG_HELP_LOV_REQUESTED') = 'Y')
+      THEN LIST_VALUES;
+      END IF;
+      
+      IF (NAME_IN('GLOBAL.CG_HELP_EDIT_REQUESTED') = 'Y')
+      THEN EDIT_TEXTITEM;
+      END IF;
+    ELSE
+      COPY(NAME_IN('SYSTEM.CURSOR_ITEM'),'GLOBAL.CGHP$LAST_ITEM_ACCESSED');
+      help;
+      Destroy_Parameter_list(hlp_param_list_id);
+    END IF;
+  END IF;
+END;
+
+PROCEDURE CGHP$CALL_HELP_FAZ
+(
+  CG_HELP_FRM in varchar2,
+  CG_HELP_MOD in varchar2,
+  CG_HELP_APP in varchar2,
+  CG_HELP_MTITLE_1 in varchar2,
+  CG_HELP_MTITLE_2 in varchar2
+) IS
+hlp_param_list_id paramlist;
+itype varchar2(30) := 'TEXT ITEM';
+help_table varchar2(100);
+
+/* CGHP$CALL_HELP_FORM */
+/* Call the help form after setting globals with current block and */
+/*   ITEM                                                         */
+BEGIN
+
+  default_value(NULL,'GLOBAL.CGHP$LAST_ITEM_ACCESSED');
+
+  if (id_null(hlp_param_list_id))
+  then
+      hlp_param_list_id := Create_Parameter_list('hlp_param_list');
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_MODP', TEXT_PARAMETER, 
+                    CG_HELP_MOD);
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_APPP', TEXT_PARAMETER,
+                    CG_HELP_APP);
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_MTITLE_2P', TEXT_PARAMETER,
+                    CG_HELP_MTITLE_2);
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_MTITLE_1P', TEXT_PARAMETER,
+                    CG_HELP_MTITLE_1);
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_BLKP', TEXT_PARAMETER,
+                    NAME_IN('SYSTEM.CURSOR_BLOCK'));
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_FLDP', TEXT_PARAMETER,
+                    NAME_IN('SYSTEM.CURSOR_ITEM'));
+
+      help_table := get_block_property(NAME_IN('SYSTEM.CURSOR_BLOCK'),BASE_TABLE);
+      help_table := substr(help_table, instr(help_table,'.')+1, NVL(length(help_table), 0));
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_TABP', TEXT_PARAMETER, help_table);
+
+      itype := get_item_property(NAME_IN('SYSTEM.CURSOR_ITEM'),ITEM_TYPE);
+      if (itype = 'TEXT ITEM')
+      then
+          Add_Parameter(hlp_param_list_id, 'CG_HELP_LOV_AVAILABLEP',
+                        TEXT_PARAMETER, get_item_property(
+                                        NAME_IN('SYSTEM.CURSOR_ITEM'),LIST));
+      else
+          Add_Parameter(hlp_param_list_id, 'CG_HELP_LOV_AVAILABLEP',
+                        TEXT_PARAMETER, 'FALSE');
+      end if;
+      Add_Parameter(hlp_param_list_id, 'CG_HELP_EDIT_AVAILABLEP',
+                    TEXT_PARAMETER, itype);
+  end if;
+
+  IF get_item_property(NAME_IN('SYSTEM.CURSOR_ITEM'),AUTO_HINT) = 'TRUE' 
+  THEN
+     COPY(NULL,'GLOBAL.CGHP$LAST_ITEM_ACCESSED');
+     COPY('N','GLOBAL.CG_HELP_LOV_REQUESTED');
+     COPY('N','GLOBAL.CG_HELP_EDIT_REQUESTED');
+
+     call_form(CG_HELP_FRM,NO_HIDE,NO_REPLACE,NO_QUERY_ONLY,hlp_param_list_id);
+
+     IF NOT FORM_SUCCESS THEN
+       message('Unable to call help form '||CG_HELP_FRM);
+     END IF;
+
+     Destroy_Parameter_list(hlp_param_list_id);
+
+     IF (NAME_IN('GLOBAL.CG_HELP_LOV_REQUESTED') = 'Y')
+     THEN LIST_VALUES;
+     END IF;
+
+     IF (NAME_IN('GLOBAL.CG_HELP_EDIT_REQUESTED') = 'Y')
+     THEN EDIT_TEXTITEM;
+     END IF;
+  ELSE
+    IF (NAME_IN('SYSTEM.CURSOR_ITEM') = 
+        NAME_IN('GLOBAL.CGHP$LAST_ITEM_ACCESSED')) 
+    THEN
+      COPY(NULL,'GLOBAL.CGHP$LAST_ITEM_ACCESSED');
+      COPY('N','GLOBAL.CG_HELP_LOV_REQUESTED');
+      COPY('N','GLOBAL.CG_HELP_EDIT_REQUESTED');
+
+      call_form(CG_HELP_FRM,NO_HIDE,NO_REPLACE,NO_QUERY_ONLY,hlp_param_list_id);
+
+      IF NOT FORM_SUCCESS THEN
+        message('Unable to call help form'||CG_HELP_FRM);
+      END IF;
+
+      Destroy_Parameter_list(hlp_param_list_id);
+
+      IF (NAME_IN('GLOBAL.CG_HELP_LOV_REQUESTED') = 'Y')
+      THEN LIST_VALUES;
+      END IF;
+      
+      IF (NAME_IN('GLOBAL.CG_HELP_EDIT_REQUESTED') = 'Y')
+      THEN EDIT_TEXTITEM;
+      END IF;
+    ELSE
+      COPY(NAME_IN('SYSTEM.CURSOR_ITEM'),'GLOBAL.CGHP$LAST_ITEM_ACCESSED');
+      help;
+      Destroy_Parameter_list(hlp_param_list_id);
+    END IF;
+  END IF;
+END;
+
+PROCEDURE CG$CHK_PACKAGE_FAILURE IS
+/* If packaged procedure has failed then raise */
+/* FORM_TRIGGER_FAILURE */
+BEGIN
+  IF NOT FORM_SUCCESS THEN
+    RAISE FORM_TRIGGER_FAILURE;
+  END IF;
+END;
+
+

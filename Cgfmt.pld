@@ -1,0 +1,94 @@
+
+
+PACKAGE CGFMT$ IS
+
+   PROCEDURE change_fld_font (p_font in VARCHAR2, p_size in number);
+     -- Alter the font used to display the field to the given font and size.
+     -- Parameters:
+     --    p_font: the name of the font. eg: 'Courier'
+     --    p_size: the size of the font. eg: 10
+
+   PROCEDURE if_above_thresh (p_col in number, p_value in number, p_colour in VARCHAR2); 
+     -- Change the colour of all displayed fields above the given value.
+     -- Parameters:
+     --    p_col:    the column to which the procedure is applied.  eg: :SAL
+     --    p_value:  the threshold value.  eg: 2000
+     --    p_colour: the colour required for the field.  eg: 'red'  
+ 
+   PROCEDURE if_below_thresh (p_col in number, p_value in number, p_colour in VARCHAR2); 
+     -- Change the colour of all displayed fields below the given value.
+     -- Parameters:
+     --    p_col:    the column to which the procedure is applied.  eg: :SAL
+     --    p_value:  the threshold value.  eg: 2000
+     --    p_colour: the colour required for the field.  eg: 'green'
+
+   PROCEDURE multiply_by (p_col in number, p_amount in number); 
+     -- Multiply each field by a given number.
+     -- Parameters:
+     --    p_col:    the column to which the procedure is applied.  eg: :PRICE
+     --    p_amount: the amount to multiply by.  eg: 0.75
+
+END;
+
+
+PACKAGE BODY CGFMT$ IS
+
+ PROCEDURE change_fld_font (p_font in VARCHAR2, p_size in number)IS
+  -- Alter the font used to display the field to the given font and size.
+  -- Parameters:
+  --    p_font: the name of the font. eg: 'Courier'
+  --    p_size: the size of the font. eg: 10
+ BEGIN
+   srw.attr.mask  := SRW.SZ_ATTR  +    -- Sets up mask to define 
+                     SRW.FACE_ATTR;    --    formatting attributes.
+   srw.attr.face := p_font ;           -- Adds given font to the mask.
+   srw.attr.sz := p_size;              -- Adds given size to the mask.
+   srw.set_attr (0, srw.attr);         -- Applies format mask to object. 
+ END;
+
+
+ PROCEDURE if_above_thresh (p_col in number, p_value in number, p_colour in VARCHAR2) IS
+  -- Change the colour of all displayed fields above the given value.
+  -- Parameters:
+  --    p_col:    the column to which the procedure is applied.  eg: :SAL
+  --    p_value:  the threshold value.  eg: 2000
+  --    p_colour: the colour required for the field.  eg: 'red'
+ BEGIN
+   if (p_col > p_value) then                -- If item in column is above thresh.
+     srw.attr.mask  := SRW.WEIGHT_ATTR  +   -- Sets up mask to define
+                       SRW.GCOLOR_ATTR;     --   formatting attributes.
+     srw.attr.weight := SRW.BOLD_WEIGHT;    -- Sets font to bold.
+     srw.attr.gcolor := p_colour;           -- Adds given colour to the mask.
+     srw.set_attr (0, srw.attr);            -- Applies format mask to object.  
+   end if;  
+ END;
+
+
+ PROCEDURE if_below_thresh (p_col in number, p_value in number, p_colour in VARCHAR2) IS
+  -- Change the colour of all displayed fields below the given value.
+  -- Parameters:
+  --    p_col:    the column to which the procedure is applied.  eg: :SAL
+  --    p_value:  the threshold value.  eg: 2000
+  --    p_colour: the colour required for the field.  eg: 'green'
+ BEGIN
+   if (p_col < p_value) then                -- If item in column is below thresh.
+     srw.attr.mask  := SRW.WEIGHT_ATTR  +   -- Sets up mask to define
+                       SRW.GCOLOR_ATTR;     --   formatting attributes.
+     srw.attr.weight := SRW.BOLD_WEIGHT;    -- Sets font to bold.
+     srw.attr.gcolor := p_colour;           -- Adds given colour to the mask.
+     srw.set_attr (0, srw.attr);            -- Applies format mask to object.
+   end if;  
+ END;
+
+
+ PROCEDURE multiply_by (p_col in number, p_amount in number) IS
+  -- Multiply each field by a given number.
+  -- Parameters:
+  --    p_col:    the column to which the procedure is applied.  eg: :PRICE
+  --    p_amount: the amount to multiply by.  eg: 0.75
+ BEGIN
+   srw.set_field_num (0, p_col * p_amount); --  multiplies field by given value.
+ END;
+
+
+END;

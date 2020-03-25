@@ -1,0 +1,48 @@
+procedure CG$_SHOW_KEYS is
+
+--  Code modified by the Forms Migration Assistant
+--  30-Out-2009 01:51 PM
+
+begin
+  if ('SYSTEM.FORM_STATUS') IS NULL
+  then
+    SHOW_KEYS;
+  else
+    show_keys;
+  end if;
+end;
+
+
+procedure CG$_previous_menu is
+begin
+  if name_in('SYSTEM.FORM_STATUS') IS NULL
+  then
+    previous_menu;
+  else
+    do_key('Previous menu');
+  end if;
+end;
+
+
+procedure CG$_HELP is
+begin
+  if name_in('SYSTEM.FORM_STATUS') IS NULL
+  then
+    menu_help;
+  else
+    do_key('help');
+  end if;
+end;
+
+
+procedure CG$_exit is
+begin
+  if name_in('SYSTEM.FORM_STATUS') IS NULL
+  then
+    exit_menu;
+  else
+    do_key('EXIT_FORM');
+  end if;
+end;
+
+
